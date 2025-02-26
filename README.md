@@ -17,7 +17,7 @@ A real-time chat application built with Go's Echo framework and JavaScript WebSo
 
   - Go 1.20+
   - Echo Web Framework v4
-  - Gorilla WebSocket
+  - Golang WebSocket
 
 - **Frontend**:
   - HTML5
