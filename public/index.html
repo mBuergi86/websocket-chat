@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebSocket Chat</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      #chat-container {
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 10px;
+        margin-bottom: 20px;
+        height: 400px;
+        overflow-y: auto;
+      }
+      #message-form {
+        display: flex;
+        gap: 10px;
+      }
+      input[type="text"] {
+        flex-grow: 1;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+      }
+      button {
+        padding: 8px 16px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      .message {
+        margin-bottom: 10px;
+        padding: 8px;
+        border-radius: 5px;
+        background-color: #f1f1f1;
+      }
+      .message .username {
+        font-weight: bold;
+        margin-right: 10px;
+        color: #333;
+      }
+      .message .content {
+        color: #555;
+      }
+      .system-message {
+        color: #777;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>WebSocket Chat</h1>
+
+    <div id="username-container">
+      <h3>Enter your username:</h3>
+      <form id="username-form">
+        <input
+          type="text"
+          id="username-input"
+          placeholder="Username"
+          required
+        />
+        <button type="submit">Join Chat</button>
+      </form>
+    </div>
+
+    <div id="chat-section" style="display: none">
+      <div id="chat-container"></div>
+
+      <form id="message-form">
+        <input
+          type="text"
+          id="message-input"
+          placeholder="Type your message..."
+          required
+        />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const usernameContainer = document.getElementById("username-container");
+        const usernameForm = document.getElementById("username-form");
+        const usernameInput = document.getElementById("username-input");
+        const chatSection = document.getElementById("chat-section");
+        const chatContainer = document.getElementById("chat-container");
+        const messageForm = document.getElementById("message-form");
+        const messageInput = document.getElementById("message-input");
+
+        let socket;
+        let username = "";
+
+        // Handle username submission
+        usernameForm.addEventListener("submit", (e) => {
+          e.preventDefault();
+          username = usernameInput.value.trim();
+          if (username) {
+            usernameContainer.style.display = "none";
+            chatSection.style.display = "block";
+            connectWebSocket();
+          }
+        });
+
+        // Connect to WebSocket server
+        function connectWebSocket() {
+          // Get the current host and protocol
+          const protocol =
+            window.location.protocol === "https:" ? "wss:" : "ws:";
+          const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+          // For local development
+          // const wsUrl = 'ws://localhost:8080/ws';
+
+          socket = new WebSocket(wsUrl);
+
+          // Handle WebSocket connection open
+          socket.onopen = () => {
+            addSystemMessage("Connected to chat server");
+            // Send a message to notify others that this user has joined
+            sendMessage({
+              username: "System",
+              content: `${username} has joined the chat`,
+            });
+          };
+
+          // Handle incoming messages
+          socket.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            addMessage(message);
+          };
+
+          // Handle WebSocket errors
+          socket.onerror = (error) => {
+            addSystemMessage("Error connecting to chat server");
+            console.error("WebSocket error:", error);
+          };
+
+          // Handle WebSocket connection close
+          socket.onclose = () => {
+            addSystemMessage("Disconnected from chat server");
+          };
+        }
+
+        // Send message through WebSocket
+        function sendMessage(message) {
+          if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify(message));
+          }
+        }
+
+        // Add a message to the chat container
+        function addMessage(message) {
+          const messageElement = document.createElement("div");
+          messageElement.className = "message";
+
+          const usernameElement = document.createElement("span");
+          usernameElement.className = "username";
+          usernameElement.textContent = message.username;
+
+          const contentElement = document.createElement("span");
+          contentElement.className = "content";
+          contentElement.textContent = message.content;
+
+          messageElement.appendChild(usernameElement);
+          messageElement.appendChild(contentElement);
+          chatContainer.appendChild(messageElement);
+
+          // Scroll to bottom
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Add a system message
+        function addSystemMessage(text) {
+          const messageElement = document.createElement("div");
+          messageElement.className = "system-message";
+          messageElement.textContent = text;
+          chatContainer.appendChild(messageElement);
+
+          // Scroll to bottom
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Handle message form submission
+        messageForm.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const content = messageInput.value.trim();
+          if (content) {
+            const message = {
+              username: username,
+              content: content,
+            };
+            sendMessage(message);
+            messageInput.value = "";
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
