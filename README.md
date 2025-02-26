@@ -36,7 +36,7 @@ A real-time chat application built with Go's Echo framework and JavaScript WebSo
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/yourusername/websocket-chat.git
+git clone https://github.com/mBuergi86/websocket-chat.git
 cd websocket-chat
 ```
 
