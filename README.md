@@ -128,7 +128,7 @@ This means:
 ## 👏 Acknowledgements
 
 - [Echo Framework](https://echo.labstack.com/)
-- [Gorilla WebSocket](https://github.com/gorilla/websocket)
+- [Golang WebSocket](https://pkg.go.dev/golang.org/x/net/websocket)
 
 ---
 
