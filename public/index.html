@@ -5,89 +5,219 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WebSocket Chat</title>
     <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+
       body {
-        font-family: Arial, sans-serif;
-        max-width: 800px;
+        background-color: #f5f5f5;
+        max-width: 900px;
         margin: 0 auto;
         padding: 20px;
+        height: 100vh;
       }
-      #chat-container {
-        border: 1px solid #ccc;
-        border-radius: 5px;
-        padding: 10px;
-        margin-bottom: 20px;
-        height: 400px;
-        overflow-y: auto;
+
+      .chat-app {
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        height: 100vh;
+        max-height: 800px;
+        background-color: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
       }
-      #message-form {
-        display: flex;
-        gap: 10px;
+
+      .chat-header {
+        padding: 16px 20px;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        grid-row: 1;
       }
-      input[type="text"] {
-        flex-grow: 1;
-        padding: 8px;
-        border: 1px solid #ccc;
-        border-radius: 3px;
-      }
-      button {
-        padding: 8px 16px;
-        background-color: #4caf50;
-        color: white;
-        border: none;
-        border-radius: 3px;
-        cursor: pointer;
-      }
-      button:hover {
-        background-color: #45a049;
-      }
-      .message {
-        margin-bottom: 10px;
-        padding: 8px;
-        border-radius: 5px;
-        background-color: #f1f1f1;
-      }
-      .message .username {
-        font-weight: bold;
-        margin-right: 10px;
+
+      .chat-header h1 {
+        font-size: 1.5rem;
         color: #333;
       }
-      .message .content {
+
+      #username-container {
+        padding: 40px 20px;
+        text-align: center;
+        grid-row: 2 / span 2;
+      }
+
+      #username-container h3 {
+        margin-bottom: 16px;
         color: #555;
       }
+
+      #username-form {
+        display: flex;
+        flex-direction: column;
+        width: 80%;
+        max-width: 300px;
+        margin: 0 auto;
+      }
+
+      #username-form input {
+        padding: 12px;
+        margin-bottom: 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 1rem;
+      }
+
+      #username-form button {
+        padding: 12px;
+        background-color: #4361ee;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      #username-form button:hover {
+        background-color: #3a56d4;
+      }
+
+      #chat-section {
+        display: grid;
+        grid-template-rows: 1fr auto;
+        grid-row: 2 / span 2;
+        height: 100%;
+      }
+
+      #chat-container {
+        grid-row: 1;
+        padding: 20px;
+        overflow-y: auto;
+        background-color: #f9f9f9;
+      }
+
+      #message-form {
+        grid-row: 2;
+        display: flex;
+        padding: 16px;
+        border-top: 1px solid #e9ecef;
+        background-color: white;
+      }
+
+      #message-input {
+        flex: 1;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 1rem;
+        margin-right: 12px;
+      }
+
+      #message-form button {
+        padding: 12px 20px;
+        background-color: #4361ee;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      #message-form button:hover {
+        background-color: #3a56d4;
+      }
+
+      .message {
+        max-width: 80%;
+        margin-bottom: 16px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        position: relative;
+        line-height: 1.4;
+      }
+
+      .message-left {
+        float: left;
+        clear: both;
+        background-color: #e6f7eb;
+        color: #2c3e50;
+        border: 1px solid #d1e7dd;
+      }
+
+      .message-right {
+        float: right;
+        clear: both;
+        background-color: #e6f0ff;
+        color: #2c3e50;
+        border: 1px solid #cfe2ff;
+        text-align: right;
+      }
+
+      .username {
+        font-weight: 600;
+        margin-bottom: 4px;
+        font-size: 0.9rem;
+        color: #555;
+        display: block;
+      }
+
+      .content {
+        word-wrap: break-word;
+      }
+
       .system-message {
-        color: #777;
+        text-align: center;
+        color: #6c757d;
         font-style: italic;
+        margin: 10px 0;
+        font-size: 0.9rem;
+        clear: both;
+      }
+
+      .message-time {
+        font-size: 0.7rem;
+        color: #888;
+        margin-top: 4px;
+        display: block;
       }
     </style>
   </head>
   <body>
-    <h1>WebSocket Chat</h1>
+    <div class="chat-app">
+      <div class="chat-header">
+        <h1>WebSocket Chat</h1>
+      </div>
 
-    <div id="username-container">
-      <h3>Enter your username:</h3>
-      <form id="username-form">
-        <input
-          type="text"
-          id="username-input"
-          placeholder="Username"
-          required
-        />
-        <button type="submit">Join Chat</button>
-      </form>
-    </div>
+      <div id="username-container">
+        <h3>Enter your username to start chatting</h3>
+        <form id="username-form">
+          <input
+            type="text"
+            id="username-input"
+            placeholder="Your name"
+            required
+          />
+          <button type="submit">Join Chat</button>
+        </form>
+      </div>
 
-    <div id="chat-section" style="display: none">
-      <div id="chat-container"></div>
+      <div id="chat-section" style="display: none">
+        <div id="chat-container"></div>
 
-      <form id="message-form">
-        <input
-          type="text"
-          id="message-input"
-          placeholder="Type your message..."
-          required
-        />
-        <button type="submit">Send</button>
-      </form>
+        <form id="message-form">
+          <input
+            type="text"
+            id="message-input"
+            placeholder="Type your message..."
+            required
+          />
+          <button type="submit">Send</button>
+        </form>
+      </div>
     </div>
 
     <script>
@@ -109,7 +239,7 @@
           username = usernameInput.value.trim();
           if (username) {
             usernameContainer.style.display = "none";
-            chatSection.style.display = "block";
+            chatSection.style.display = "grid";
             connectWebSocket();
           }
         });
@@ -122,9 +252,9 @@
           const wsUrl = `${protocol}//${window.location.host}/ws`;
 
           // For local development
-          // const wsUrl = 'ws://localhost:8080/ws';
+          const wsUrl2 = "ws://localhost:8080/ws";
 
-          socket = new WebSocket(wsUrl);
+          socket = new WebSocket(wsUrl2);
 
           // Handle WebSocket connection open
           socket.onopen = () => {
@@ -138,8 +268,13 @@
 
           // Handle incoming messages
           socket.onmessage = (event) => {
-            const message = JSON.parse(event.data);
-            addMessage(message);
+            try {
+              const message = JSON.parse(event.data);
+              addMessage(message);
+            } catch (error) {
+              console.error("Error parsing message:", error);
+              addSystemMessage("Received invalid message format");
+            }
           };
 
           // Handle WebSocket errors
@@ -161,21 +296,47 @@
           }
         }
 
+        // Format time for messages
+        function getTimeString() {
+          const now = new Date();
+          return now.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        }
+
         // Add a message to the chat container
         function addMessage(message) {
           const messageElement = document.createElement("div");
-          messageElement.className = "message";
 
-          const usernameElement = document.createElement("span");
-          usernameElement.className = "username";
-          usernameElement.textContent = message.username;
+          // Determine if this message is from the current user
+          const isCurrentUser = message.username === username;
 
-          const contentElement = document.createElement("span");
-          contentElement.className = "content";
-          contentElement.textContent = message.content;
+          // Add appropriate class based on sender
+          if (message.username === "System") {
+            messageElement.className = "system-message";
+            messageElement.textContent = message.content;
+          } else {
+            messageElement.className =
+              "message " + (isCurrentUser ? "message-right" : "message-left");
 
-          messageElement.appendChild(usernameElement);
-          messageElement.appendChild(contentElement);
+            const userElement = document.createElement("span");
+            userElement.className = "username";
+            userElement.textContent = message.username;
+
+            const contentElement = document.createElement("span");
+            contentElement.className = "content";
+            contentElement.textContent = message.content;
+
+            const timeElement = document.createElement("span");
+            timeElement.className = "message-time";
+            timeElement.textContent = getTimeString();
+
+            messageElement.appendChild(userElement);
+            messageElement.appendChild(contentElement);
+            messageElement.appendChild(timeElement);
+          }
+
           chatContainer.appendChild(messageElement);
 
           // Scroll to bottom

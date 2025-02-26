@@ -2,19 +2,19 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"net/http"
+	"os"
 	"sync"
 
-	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"golang.org/x/net/websocket"
 )
 
 // Client represents a connected websocket client
 type Client struct {
 	conn *websocket.Conn
-	send chan []byte
 	hub  *Hub
 }
 
@@ -43,6 +43,17 @@ func newHub() *Hub {
 	}
 }
 
+var (
+	event = log.Info()
+	fatal = log.Fatal()
+)
+
+// Initialize zerolog
+func init() {
+	// Set up pretty logging for development
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, NoColor: false})
+}
+
 // Run the hub to handle client events and message broadcasting
 func (h *Hub) run() {
 	for {
@@ -51,96 +62,56 @@ func (h *Hub) run() {
 			h.mutex.Lock()
 			h.clients[client] = true
 			h.mutex.Unlock()
-			log.Println("Client registered, total clients:", len(h.clients))
+			event.Msgf("Client registered, total clients: %d", len(h.clients))
 		case client := <-h.unregister:
 			h.mutex.Lock()
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
-				close(client.send)
 			}
 			h.mutex.Unlock()
-			log.Println("Client unregistered, total clients:", len(h.clients))
+			event.Msgf("Client unregistered, total clients: %d", len(h.clients))
 		case message := <-h.broadcast:
 			h.mutex.Lock()
 			for client := range h.clients {
-				select {
-				case client.send <- message:
-				default:
-					close(client.send)
-					delete(h.clients, client)
-				}
+				go func(c *Client, msg []byte) {
+					err := websocket.Message.Send(c.conn, string(msg))
+					if err != nil {
+						fatal.Stack().Err(err).Msg("Error sending message")
+						h.unregister <- c
+					}
+				}(client, message)
 			}
 			h.mutex.Unlock()
 		}
 	}
 }
 
-// Run the client's read pump
-func (c *Client) readPump() {
-	defer func() {
-		c.hub.unregister <- c
-		c.conn.Close()
-	}()
+// WebSocket handler function
+func handleWebSocket(hub *Hub) websocket.Handler {
+	return websocket.Handler(func(ws *websocket.Conn) {
+		client := &Client{ws, hub}
+		hub.register <- client
 
-	for {
-		_, message, err := c.conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+		defer func() {
+			hub.unregister <- client
+			ws.Close()
+		}()
+
+		for {
+			var msg string
+			err := websocket.Message.Receive(ws, &msg)
+			if err != nil {
+				fatal.Stack().Err(err).Msg("Error receiving message")
+				break
 			}
-			break
+			hub.broadcast <- []byte(msg)
 		}
-		c.hub.broadcast <- message
-	}
-}
-
-// Run the client's write pump
-func (c *Client) writePump() {
-	defer func() {
-		c.conn.Close()
-	}()
-
-	for {
-		message, ok := <-c.send
-		if !ok {
-			// The hub closed the channel
-			c.conn.WriteMessage(websocket.CloseMessage, []byte{})
-			return
-		}
-
-		err := c.conn.WriteMessage(websocket.TextMessage, message)
-		if err != nil {
-			log.Printf("error writing message: %v", err)
-			return
-		}
-	}
-}
-
-// Configure websocket upgrader
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true // Allow all connections (for development)
-	},
+	})
 }
 
 // WebSocket handler
-func handleWebSocket(hub *Hub, c echo.Context) error {
-	conn, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
-	if err != nil {
-		log.Println("Error upgrading to websocket:", err)
-		return err
-	}
-
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
-	client.hub.register <- client
-
-	// Start the client routines
-	go client.writePump()
-	go client.readPump()
-
-	return nil
+func webSocketHandler(hub *Hub) echo.HandlerFunc {
+	return echo.WrapHandler(handleWebSocket(hub))
 }
 
 func main() {
@@ -155,12 +126,16 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
+	e.Use(middleware.SecureWithConfig(middleware.SecureConfig{
+		Skipper:            middleware.DefaultSkipper,
+		XSSProtection:      "1; mode=block",
+		ContentTypeNosniff: "nosniff",
+		HSTSMaxAge:         0,
+	}))
 
 	// Routes
 	e.Static("/", "public")
-	e.GET("/ws", func(c echo.Context) error {
-		return handleWebSocket(hub, c)
-	})
+	e.GET("/ws", webSocketHandler(hub))
 
 	// Start server
 	port := ":8080"
